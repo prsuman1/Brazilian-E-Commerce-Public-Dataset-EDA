@@ -273,18 +273,23 @@ def page_full_dashboard(df, data_dict=None):
         # Calculate revenue components
         product_revenue = filtered_df.groupby('order_id')['price'].sum().sum()
         freight_revenue = filtered_df.groupby('order_id')['freight_value'].sum().sum()
+        total_payment_value = filtered_df.groupby('order_id')['payment_value'].sum().sum()
+        
+        # Calculate other charges (taxes, fees, etc.)
+        other_charges = total_payment_value - (product_revenue + freight_revenue)
         
         # Create waterfall data
         waterfall_data = [
             ("Product Sales", product_revenue),
             ("Freight Charges", freight_revenue),
-            ("Total Revenue", product_revenue + freight_revenue)
+            ("Other Charges (Taxes/Fees)", other_charges),
+            ("Total Revenue", total_payment_value)
         ]
         
         fig = go.Figure(go.Waterfall(
             name="Revenue Breakdown",
             orientation="v",
-            measure=["relative", "relative", "total"],
+            measure=["relative", "relative", "relative", "total"],
             x=[x[0] for x in waterfall_data],
             y=[x[1] for x in waterfall_data],
             text=[f"R$ {x[1]:,.0f}" for x in waterfall_data],
@@ -1862,14 +1867,18 @@ def create_revenue_waterfall(df):
     # Calculate components
     product_revenue = df.groupby('order_id')['price'].sum().sum()
     freight_revenue = df.groupby('order_id')['freight_value'].sum().sum()
+    total_payment_value = df.groupby('order_id')['payment_value'].sum().sum()
+    
+    # Calculate other charges (taxes, fees, etc.)
+    other_charges = total_payment_value - (product_revenue + freight_revenue)
     
     fig = go.Figure(go.Waterfall(
         name="Revenue Breakdown",
         orientation="v",
-        measure=["relative", "relative", "total"],
-        x=["Product Sales", "Freight Charges", "Total Revenue"],
-        y=[product_revenue, freight_revenue, product_revenue + freight_revenue],
-        text=[f"R$ {x:,.0f}" for x in [product_revenue, freight_revenue, product_revenue + freight_revenue]],
+        measure=["relative", "relative", "relative", "total"],
+        x=["Product Sales", "Freight Charges", "Other Charges (Taxes/Fees)", "Total Revenue"],
+        y=[product_revenue, freight_revenue, other_charges, total_payment_value],
+        text=[f"R$ {x:,.0f}" for x in [product_revenue, freight_revenue, other_charges, total_payment_value]],
         textposition="outside"
     ))
     
