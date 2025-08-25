@@ -438,9 +438,10 @@ def page_full_dashboard(df, data_dict=None):
         state_customers = filtered_df.groupby('customer_state')['customer_unique_id'].nunique().reset_index()
         state_customers = state_customers.sort_values('customer_unique_id', ascending=False).head(15)
         
-        fig = px.treemap(state_customers, path=['customer_state'], values='customer_unique_id',
-                        title="Customer Distribution by State",
-                        color='customer_unique_id', color_continuous_scale='Blues')
+        fig = px.bar(state_customers, x='customer_state', y='customer_unique_id',
+                    title="Customer Distribution by State",
+                    color='customer_unique_id', color_continuous_scale='Blues',
+                    labels={'customer_unique_id': 'Number of Customers', 'customer_state': 'State'})
         st.plotly_chart(fig, use_container_width=True)
     
     # SELLER PERFORMANCE
@@ -2539,9 +2540,10 @@ def page_seller_recommendations(df, data_dict=None):
         }).reset_index()
         segment_summary.columns = ['Segment', 'Count', 'Total Revenue', 'Avg Review']
         
-        fig = px.treemap(segment_summary, path=['Segment'], values='Total Revenue',
-                        color='Avg Review', color_continuous_scale='RdYlGn',
-                        title="Seller Segments by Revenue Contribution")
+        fig = px.bar(segment_summary, x='Segment', y='Total Revenue',
+                    color='Avg Review', color_continuous_scale='RdYlGn',
+                    title="Seller Segments by Revenue Contribution",
+                    labels={'Total Revenue': 'Total Revenue (R$)', 'Avg Review': 'Average Review Score'})
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
