@@ -116,8 +116,8 @@ def page_executive_overview(df, data_dict=None):
     st.title("📊 Executive Overview")
     st.markdown("### Business Health Snapshot")
     
-    # Calculate KPIs
-    total_revenue = df.groupby('order_id')['payment_value'].sum().sum()
+    # Calculate KPIs - FIXED: Use original payments table
+    total_revenue = data_dict['order_payments']['payment_value'].sum()
     total_orders = df['order_id'].nunique()
     total_customers = df['customer_unique_id'].nunique()
     total_sellers = df['seller_id'].nunique()
@@ -156,7 +156,14 @@ def page_executive_overview(df, data_dict=None):
     
     with col1:
         st.subheader("📈 Revenue Trend")
-        monthly_revenue = df.groupby('order_month')['payment_value'].sum().reset_index()
+        # FIXED: Use original payments table with order dates
+        orders_with_payments = pd.merge(
+            data_dict['orders'][['order_id', 'order_purchase_timestamp']], 
+            data_dict['order_payments'][['order_id', 'payment_value']], 
+            on='order_id'
+        )
+        orders_with_payments['order_month'] = orders_with_payments['order_purchase_timestamp'].dt.to_period('M').astype(str)
+        monthly_revenue = orders_with_payments.groupby('order_month')['payment_value'].sum().reset_index()
         monthly_revenue = monthly_revenue.sort_values('order_month')
         
         fig = px.area(monthly_revenue, x='order_month', y='payment_value',
@@ -242,7 +249,9 @@ def page_full_dashboard(df, data_dict=None):
         
         # Revenue KPIs
         col1, col2, col3, col4 = st.columns(4)
-        total_revenue = filtered_df.groupby('order_id')['payment_value'].sum().sum()
+        # Fix: Calculate revenue correctly without double-counting
+        order_payments = filtered_df.drop_duplicates('order_id')[['order_id', 'payment_value']]
+        total_revenue = order_payments['payment_value'].sum()
         total_orders = filtered_df['order_id'].nunique()
         avg_order_value = total_revenue / total_orders if total_orders > 0 else 0
         
@@ -250,8 +259,10 @@ def page_full_dashboard(df, data_dict=None):
         if len(filtered_df) > 0:
             current_month = filtered_df['order_month'].max()
             prev_month = pd.Period(current_month).asfreq('M') - 1
-            current_revenue = filtered_df[filtered_df['order_month'] == str(current_month)].groupby('order_id')['payment_value'].sum().sum()
-            prev_revenue = filtered_df[filtered_df['order_month'] == str(prev_month)].groupby('order_id')['payment_value'].sum().sum()
+            current_month_data = filtered_df[filtered_df['order_month'] == str(current_month)]
+            prev_month_data = filtered_df[filtered_df['order_month'] == str(prev_month)]
+            current_revenue = current_month_data.drop_duplicates('order_id')['payment_value'].sum()
+            prev_revenue = prev_month_data.drop_duplicates('order_id')['payment_value'].sum()
             growth_rate = ((current_revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
         else:
             growth_rate = 0
@@ -270,10 +281,18 @@ def page_full_dashboard(df, data_dict=None):
         # Revenue Waterfall Chart
         st.subheader("💧 Revenue Waterfall Analysis")
         
-        # Calculate revenue components
-        product_revenue = filtered_df.groupby('order_id')['price'].sum().sum()
-        freight_revenue = filtered_df.groupby('order_id')['freight_value'].sum().sum()
-        total_payment_value = filtered_df.groupby('order_id')['payment_value'].sum().sum()
+        # Calculate revenue components - FIXED: Use source tables directly
+        # Get order IDs in the filtered date range
+        filtered_order_ids = set(filtered_df['order_id'].unique())
+        
+        # Method 1: Use original order_items table for accurate product/freight revenue
+        items_in_period = data_dict['order_items'][data_dict['order_items']['order_id'].isin(filtered_order_ids)]
+        product_revenue = items_in_period['price'].sum()
+        freight_revenue = items_in_period['freight_value'].sum()
+        
+        # Method 2: Use original order_payments table for total payment value
+        payments_in_period = data_dict['order_payments'][data_dict['order_payments']['order_id'].isin(filtered_order_ids)]
+        total_payment_value = payments_in_period['payment_value'].sum()
         
         # Calculate other charges (taxes, fees, etc.)
         other_charges = total_payment_value - (product_revenue + freight_revenue)
@@ -1394,8 +1413,8 @@ def page_technical_documentation(df, data_dict=None):
             
             **Total Revenue (Aggregation):**
             ```python
-            # Method: Sum of payments per unique order
-            total_revenue = df.groupby('order_id')['payment_value'].sum().sum()
+            # Method: Sum of payments per unique order (FIXED)
+            total_revenue = df.drop_duplicates('order_id')['payment_value'].sum()
             
             # Why: Handles multiple payments per order correctly
             # Validation: Cross-check with order_items price + freight
@@ -1415,7 +1434,8 @@ def page_technical_documentation(df, data_dict=None):
             **Month-over-Month Growth (Time Series):**
             ```python
             # Method: Percentage change calculation
-            monthly_revenue = df.groupby('order_month')['payment_value'].sum()
+            monthly_data = df.drop_duplicates('order_id')[['order_month', 'payment_value']]
+            monthly_revenue = monthly_data.groupby('order_month')['payment_value'].sum()
             mom_growth = monthly_revenue.pct_change() * 100
             
             # Seasonality adjustment using moving averages
@@ -1865,10 +1885,10 @@ def apply_filters(df, states=None, categories=None):
 def create_revenue_waterfall(df):
     \"\"\"Create revenue waterfall chart\"\"\"
     
-    # Calculate components
-    product_revenue = df.groupby('order_id')['price'].sum().sum()
-    freight_revenue = df.groupby('order_id')['freight_value'].sum().sum()
-    total_payment_value = df.groupby('order_id')['payment_value'].sum().sum()
+    # Calculate components (FIXED)
+    product_revenue = df['price'].sum()
+    freight_revenue = df['freight_value'].sum()
+    total_payment_value = df.drop_duplicates('order_id')['payment_value'].sum()
     
     # Calculate other charges (taxes, fees, etc.)
     other_charges = total_payment_value - (product_revenue + freight_revenue)
