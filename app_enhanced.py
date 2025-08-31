@@ -1318,6 +1318,34 @@ def page_cpo_recommendations(df, data_dict):
         color = "🔴" if slow_mover_pct > 30 else "🟡" if slow_mover_pct > 20 else "🟢"
         st.metric("Slow-Moving SKUs", f"{slow_mover_pct:.1f}%", f"{color}")
     
+    # Slow-Moving SKUs Calculation Methodology
+    st.markdown("### 📊 Slow-Moving SKUs Definition")
+    st.markdown(f"""
+    **Definition:** Products with fewer than 2 orders in the entire dataset period
+    
+    **Calculation Logic:**
+    ```python
+    # Group by product_id and count unique orders
+    product_sales = df.groupby('product_id')['order_id'].nunique()
+    
+    # Define slow-movers as products with < 2 orders
+    slow_movers = product_sales[product_sales < 2]
+    slow_mover_percentage = (len(slow_movers) / total_products) * 100
+    ```
+    
+    **Current Results:**
+    - Total Products: {total_products:,} SKUs
+    - Slow-Moving Products: {slow_movers:,} SKUs (< 2 orders)
+    - Percentage: {slow_mover_pct:.1f}% of portfolio
+    
+    **Threshold Interpretation:**
+    - 🟢 <20%: Healthy inventory turnover
+    - 🟡 20-30%: Moderate inventory risk
+    - 🔴 >30%: High inventory risk - immediate action needed
+    
+    **Business Impact:** Slow-moving inventory ties up capital and increases holding costs
+    """)
+    
     # Product Intelligence
     if slow_mover_pct > 30:
         st.markdown('<div class="critical-insight">🔴 CRITICAL: High inventory risk with 30%+ slow-moving SKUs</div>', unsafe_allow_html=True)
@@ -1368,6 +1396,33 @@ def page_cpo_recommendations(df, data_dict):
         fig.add_vline(x=median_growth, line_dash="dash", line_color="gray", opacity=0.5)
         
         st.plotly_chart(fig, use_container_width=True)
+        
+        # BCG Matrix Methodology Documentation
+        st.markdown("### 📊 BCG Matrix Classification Logic")
+        st.markdown(f"""
+        **Quadrant Definitions:**
+        
+        🌟 **Stars**: High Revenue (>{median_revenue:,.0f}) + High Orders (>{median_growth:,.0f})
+        - Best performers - invest and grow these categories
+        - High market share in growing markets
+        
+        🐄 **Cash Cows**: High Revenue (>{median_revenue:,.0f}) + Low Orders (≤{median_growth:,.0f})
+        - Mature categories generating strong revenue
+        - Maintain and harvest profits
+        
+        ❓ **Question Marks**: Low Revenue (≤{median_revenue:,.0f}) + High Orders (>{median_growth:,.0f})
+        - High growth potential but low current revenue
+        - Require investment to become stars
+        
+        🐕 **Dogs**: Low Revenue (≤{median_revenue:,.0f}) + Low Orders (≤{median_growth:,.0f})
+        - Poor performers on both metrics
+        - Consider discontinuation or major improvement
+        
+        **Thresholds (Dynamic):**
+        - Revenue Median: R$ {median_revenue:,.0f}
+        - Order Volume Median: {median_growth:,.0f} orders
+        - Based on top 15 categories in your portfolio
+        """)
         
         # Portfolio insights
         stars = category_metrics[category_metrics['Portfolio Position'] == 'Stars ⭐']
@@ -1450,30 +1505,144 @@ def page_cpo_recommendations(df, data_dict):
         fig.update_traces(marker_color='lightgreen')
         st.plotly_chart(fig, use_container_width=True)
         
+        # Price Tier Methodology Documentation
+        st.markdown("### 💰 Price Tier Definition & Methodology")
+        st.markdown(f"""
+        **Price Segmentation Logic:**
+        
+        Price tiers are created using **quantile-based segmentation (quintiles)**:
+        ```python
+        # Calculate price tiers using 5 quantiles (20% each)
+        price_performance['Price Tier'] = pd.qcut(
+            price_performance['price'], 
+            q=5, 
+            labels=['Very Low', 'Low', 'Medium', 'High', 'Premium']
+        )
+        ```
+        
+        **Current Price Ranges:**
+        """)
+        
+        # Calculate and display actual price ranges for each tier
+        price_ranges = df.groupby(pd.qcut(df['price'], q=5, labels=['Very Low', 'Low', 'Medium', 'High', 'Premium']))['price'].agg(['min', 'max']).reset_index()
+        price_ranges.columns = ['Price_Tier', 'Min_Price', 'Max_Price']
+        
+        for _, row in price_ranges.iterrows():
+            st.markdown(f"- **{row['Price_Tier']}**: R$ {row['Min_Price']:.2f} - R$ {row['Max_Price']:.2f}")
+            
+        st.markdown(f"""
+        **Methodology Benefits:**
+        - **Dynamic**: Adapts to your actual price distribution
+        - **Balanced**: Each tier contains ~20% of products
+        - **Data-Driven**: Based on actual product prices, not arbitrary thresholds
+        
+        **Business Application:**
+        - Identify optimal price segments for new products
+        - Understand customer price sensitivity by volume
+        - Guide pricing strategy and product positioning
+        """)
+        
         # Pricing insights
         best_tier = price_tier_performance.loc[price_tier_performance['order_id'].idxmax(), 'Price Tier']
         st.markdown(f'<div class="insight-box">💰 SWEET SPOT: {best_tier} price tier shows highest volume</div>', unsafe_allow_html=True)
         st.markdown('<div class="recommendation-box">🎯 RECOMMENDATION: Focus new product development in optimal price range</div>', unsafe_allow_html=True)
     
-    # ROI Analysis for CPO Initiatives
-    st.subheader("💰 CPO Initiative ROI Analysis")
+    # ROI Analysis for Inventory Initiatives
+    st.subheader("💰 Inventory Initiative ROI Analysis")
+    
+    # Current inventory metrics for ROI calculations
+    current_slow_movers = slow_movers
+    current_categories = total_categories
+    current_avg_rating = avg_product_rating
+    total_annual_revenue = df['payment_value'].sum() * 4  # Assuming quarterly data
     
     product_initiatives = {
-        'SKU Rationalization Program': {'investment': 300000, 'return': 1500000, 'timeline': '6 months'},
-        'Quality Improvement Initiative': {'investment': 400000, 'return': 1800000, 'timeline': '8 months'},
-        'Product Bundle Strategy': {'investment': 250000, 'return': 1200000, 'timeline': '4 months'},
-        'Category Expansion Plan': {'investment': 500000, 'return': 2000000, 'timeline': '12 months'}
+        'SKU Rationalization Program': {
+            'investment': 300000,
+            'timeline': '6 months',
+            'assumptions': {
+                'slow_movers_to_eliminate': int(slow_movers * 0.60),  # Eliminate 60% of slow movers
+                'inventory_cost_savings': 0.25,  # 25% holding cost savings
+                'avg_inventory_value': 150.0,  # Average inventory value per SKU
+                'warehouse_space_savings': 0.15  # 15% space optimization
+            }
+        },
+        'Quality Improvement Initiative': {
+            'investment': 400000,
+            'timeline': '8 months',
+            'assumptions': {
+                'target_rating_improvement': 0.3,  # Improve avg rating by 0.3 points
+                'quality_categories_to_fix': 5,  # Focus on 5 worst categories
+                'return_rate_reduction': 0.40,  # 40% reduction in returns
+                'customer_retention_boost': 0.12  # 12% retention improvement
+            }
+        },
+        'Product Bundle Strategy': {
+            'investment': 250000,
+            'timeline': '4 months',
+            'assumptions': {
+                'bundle_penetration_target': 0.15,  # 15% of orders become bundles
+                'avg_bundle_uplift': 1.35,  # 35% higher AOV for bundles
+                'cross_sell_improvement': 0.08,  # 8% improvement in cross-sell
+                'bundle_margin_premium': 0.18  # 18% higher margins on bundles
+            }
+        },
+        'Category Expansion Plan': {
+            'investment': 500000,
+            'timeline': '12 months',
+            'assumptions': {
+                'new_categories_to_launch': 3,  # Launch 3 new categories
+                'market_share_target': 0.05,  # Capture 5% market share in new categories
+                'time_to_profitability': 6,  # Months to break even
+                'category_revenue_potential': 800000  # Annual revenue potential per category
+            }
+        }
     }
     
+    # Calculate ROI based on detailed assumptions
     roi_data = []
-    for initiative, data in product_initiatives.items():
-        roi = ((data['return'] - data['investment']) / data['investment']) * 100
+    
+    # SKU Rationalization ROI
+    sku_assumptions = product_initiatives['SKU Rationalization Program']['assumptions']
+    sku_inventory_savings = sku_assumptions['slow_movers_to_eliminate'] * sku_assumptions['avg_inventory_value'] * sku_assumptions['inventory_cost_savings']
+    sku_space_savings = total_annual_revenue * 0.02 * sku_assumptions['warehouse_space_savings']  # 2% of revenue in space costs
+    sku_return = sku_inventory_savings + sku_space_savings
+    
+    # Quality Improvement ROI
+    quality_assumptions = product_initiatives['Quality Improvement Initiative']['assumptions']
+    quality_retention_value = total_annual_revenue * quality_assumptions['customer_retention_boost']
+    quality_return_savings = total_annual_revenue * 0.03 * quality_assumptions['return_rate_reduction']  # 3% return rate
+    quality_return = quality_retention_value + quality_return_savings
+    
+    # Product Bundle ROI
+    bundle_assumptions = product_initiatives['Product Bundle Strategy']['assumptions']
+    bundle_revenue_boost = total_annual_revenue * bundle_assumptions['bundle_penetration_target'] * (bundle_assumptions['avg_bundle_uplift'] - 1)
+    bundle_margin_boost = bundle_revenue_boost * bundle_assumptions['bundle_margin_premium']
+    bundle_return = bundle_revenue_boost + bundle_margin_boost
+    
+    # Category Expansion ROI
+    expansion_assumptions = product_initiatives['Category Expansion Plan']['assumptions']
+    expansion_revenue = expansion_assumptions['new_categories_to_launch'] * expansion_assumptions['category_revenue_potential']
+    expansion_market_value = expansion_revenue * expansion_assumptions['market_share_target']
+    expansion_return = expansion_market_value
+    
+    # Build ROI data with calculated returns
+    initiatives_with_returns = {
+        'SKU Rationalization Program': sku_return,
+        'Quality Improvement Initiative': quality_return,
+        'Product Bundle Strategy': bundle_return,
+        'Category Expansion Plan': expansion_return
+    }
+    
+    for initiative, calculated_return in initiatives_with_returns.items():
+        investment = product_initiatives[initiative]['investment']
+        roi = ((calculated_return - investment) / investment) * 100
         roi_data.append({
             'Initiative': initiative,
-            'Investment': data['investment'],
-            'Expected Return': data['return'],
+            'Investment': investment,
+            'Expected Return': calculated_return,
             'ROI %': roi,
-            'Timeline': data['timeline']
+            'Timeline': product_initiatives[initiative]['timeline']
         })
     
     roi_df = pd.DataFrame(roi_data)
@@ -1494,6 +1663,52 @@ def page_cpo_recommendations(df, data_dict):
         'Expected Return': 'R$ {:,.0f}',
         'ROI %': '{:.0f}%'
     }), use_container_width=True)
+    
+    # Detailed Assumptions Documentation
+    st.markdown("### 📋 Detailed Inventory Initiative Assumptions")
+    
+    for initiative, data in product_initiatives.items():
+        with st.expander(f"📦 {initiative} - Calculation Details"):
+            st.markdown(f"**Investment:** R$ {data['investment']:,}")
+            st.markdown(f"**Timeline:** {data['timeline']}")
+            st.markdown("**Key Assumptions:**")
+            
+            if initiative == 'SKU Rationalization Program':
+                st.markdown(f"""
+                - Current slow-moving SKUs: {current_slow_movers:,} products (< 2 orders)
+                - Target elimination: {data['assumptions']['slow_movers_to_eliminate']:,} SKUs ({data['assumptions']['slow_movers_to_eliminate']/current_slow_movers*100:.0f}% of slow movers)
+                - Inventory holding cost savings: {data['assumptions']['inventory_cost_savings']*100:.0f}%
+                - Average inventory value per SKU: R$ {data['assumptions']['avg_inventory_value']}
+                - Warehouse space optimization: {data['assumptions']['warehouse_space_savings']*100:.0f}%
+                - **Calculation:** {data['assumptions']['slow_movers_to_eliminate']:,} SKUs × R$ {data['assumptions']['avg_inventory_value']} × {data['assumptions']['inventory_cost_savings']*100:.0f}% + space savings
+                """)
+                
+            elif initiative == 'Quality Improvement Initiative':
+                st.markdown(f"""
+                - Current average rating: {current_avg_rating:.2f} → Target: {current_avg_rating + data['assumptions']['target_rating_improvement']:.2f}
+                - Categories to focus on: {data['assumptions']['quality_categories_to_fix']} worst performing
+                - Return rate reduction: {data['assumptions']['return_rate_reduction']*100:.0f}% (assumes 3% baseline return rate)
+                - Customer retention boost: {data['assumptions']['customer_retention_boost']*100:.0f}% from quality improvements
+                - **Calculation:** Retention value + return cost savings based on annual revenue of R$ {total_annual_revenue:,.0f}
+                """)
+                
+            elif initiative == 'Product Bundle Strategy':
+                st.markdown(f"""
+                - Bundle penetration target: {data['assumptions']['bundle_penetration_target']*100:.0f}% of orders
+                - Average order value uplift: {data['assumptions']['avg_bundle_uplift']*100:.0f}% (35% higher AOV)
+                - Cross-sell improvement: {data['assumptions']['cross_sell_improvement']*100:.0f}% across product categories
+                - Bundle margin premium: {data['assumptions']['bundle_margin_premium']*100:.0f}% higher margins
+                - **Calculation:** Revenue boost from bundles + margin premium on bundle sales
+                """)
+                
+            elif initiative == 'Category Expansion Plan':
+                st.markdown(f"""
+                - New categories to launch: {data['assumptions']['new_categories_to_launch']} categories
+                - Market share target: {data['assumptions']['market_share_target']*100:.0f}% in each new category
+                - Time to profitability: {data['assumptions']['time_to_profitability']} months
+                - Revenue potential per category: R$ {data['assumptions']['category_revenue_potential']:,} annually
+                - **Calculation:** {data['assumptions']['new_categories_to_launch']} categories × R$ {data['assumptions']['category_revenue_potential']:,} × {data['assumptions']['market_share_target']*100:.0f}% market share
+                """)
     
     # Strategic Action Plan
     st.markdown("### 🛍️ Product Strategy Roadmap")
