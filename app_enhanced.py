@@ -1099,25 +1099,108 @@ def page_coo_recommendations(df, data_dict):
         st.markdown(f'<div class="insight-box">📊 INSIGHT: Peak hour ({peak_hour}:00) has {peak_ratio:.1f}x average volume</div>', unsafe_allow_html=True)
         st.markdown('<div class="recommendation-box">👥 RECOMMENDATION: Optimize staffing schedule around peak hours</div>', unsafe_allow_html=True)
     
-    # ROI Analysis for COO Initiatives
+    # ROI Analysis for COO Initiatives with detailed assumptions
     st.subheader("💰 COO Initiative ROI Analysis")
     
+    # Current operational metrics for ROI calculations
+    current_avg_delivery = avg_delivery_time
+    current_ontime_rate = on_time_rate
+    current_processing = avg_processing
+    total_annual_orders = total_orders * 4  # Assuming quarterly data
+    
     operations_initiatives = {
-        'Regional Distribution Centers': {'investment': 2000000, 'return': 5000000, 'timeline': '12 months'},
-        'Warehouse Automation': {'investment': 800000, 'return': 2400000, 'timeline': '8 months'},
-        'Logistics Partnership Optimization': {'investment': 200000, 'return': 1000000, 'timeline': '4 months'},
-        'Process Digitization': {'investment': 300000, 'return': 900000, 'timeline': '6 months'}
+        'Regional Distribution Centers': {
+            'investment': 2000000,
+            'timeline': '12 months',
+            'assumptions': {
+                'delivery_time_reduction': 5.0,  # Reduce delivery time by 5 days
+                'ontime_improvement': 15.0,  # Improve on-time delivery by 15%
+                'cost_per_order_reduction': 8.50,  # Reduce shipping cost per order
+                'customer_satisfaction_boost': 0.20,  # 20% improvement in satisfaction
+                'annual_operational_savings': 800000  # Annual operational cost savings
+            }
+        },
+        'Warehouse Automation': {
+            'investment': 800000,
+            'timeline': '8 months',
+            'assumptions': {
+                'processing_time_reduction': 1.5,  # Reduce processing by 1.5 days
+                'labor_cost_savings': 400000,  # Annual labor savings
+                'error_reduction': 0.30,  # 30% reduction in picking errors
+                'throughput_increase': 0.40,  # 40% increase in throughput
+                'maintenance_cost': 50000  # Annual maintenance cost
+            }
+        },
+        'Logistics Partnership Optimization': {
+            'investment': 200000,
+            'timeline': '4 months',
+            'assumptions': {
+                'carrier_cost_reduction': 0.12,  # 12% reduction in shipping costs
+                'delivery_reliability_boost': 10.0,  # 10% improvement in reliability
+                'negotiation_savings_per_order': 3.20,  # Savings per order
+                'partnership_management_cost': 30000,  # Annual partnership management
+                'volume_discount_threshold': 50000  # Minimum orders for discounts
+            }
+        },
+        'Process Digitization': {
+            'investment': 300000,
+            'timeline': '6 months',
+            'assumptions': {
+                'automation_time_savings': 2.0,  # 2 hours saved per day per employee
+                'headcount_optimization': 8,  # Equivalent full-time positions optimized
+                'avg_hourly_wage': 25.0,  # Average hourly wage in BRL
+                'working_days_per_year': 250,  # Working days
+                'system_maintenance_cost': 40000  # Annual system maintenance
+            }
+        }
     }
     
+    # Calculate ROI based on detailed assumptions
     roi_data = []
-    for initiative, data in operations_initiatives.items():
-        roi = ((data['return'] - data['investment']) / data['investment']) * 100
+    
+    # Regional Distribution Centers ROI
+    rdc_assumptions = operations_initiatives['Regional Distribution Centers']['assumptions']
+    rdc_shipping_savings = total_annual_orders * rdc_assumptions['cost_per_order_reduction']
+    rdc_satisfaction_value = total_annual_orders * 2.5  # Value per order from improved satisfaction
+    rdc_return = rdc_shipping_savings + rdc_satisfaction_value + rdc_assumptions['annual_operational_savings']
+    
+    # Warehouse Automation ROI
+    wa_assumptions = operations_initiatives['Warehouse Automation']['assumptions']
+    wa_labor_savings = wa_assumptions['labor_cost_savings']
+    wa_error_savings = total_annual_orders * 1.80 * wa_assumptions['error_reduction']  # Cost per error
+    wa_throughput_value = total_annual_orders * 0.50 * wa_assumptions['throughput_increase']  # Value per order efficiency
+    wa_return = wa_labor_savings + wa_error_savings + wa_throughput_value - wa_assumptions['maintenance_cost']
+    
+    # Logistics Partnership ROI
+    lpo_assumptions = operations_initiatives['Logistics Partnership Optimization']['assumptions']
+    lpo_cost_savings = total_annual_orders * lpo_assumptions['negotiation_savings_per_order']
+    lpo_reliability_value = total_annual_orders * 1.20 * (lpo_assumptions['delivery_reliability_boost'] / 100)
+    lpo_return = lpo_cost_savings + lpo_reliability_value - lpo_assumptions['partnership_management_cost']
+    
+    # Process Digitization ROI
+    pd_assumptions = operations_initiatives['Process Digitization']['assumptions']
+    pd_time_savings_value = (pd_assumptions['automation_time_savings'] * pd_assumptions['avg_hourly_wage'] * 
+                           pd_assumptions['working_days_per_year'] * pd_assumptions['headcount_optimization'])
+    pd_efficiency_gains = total_annual_orders * 0.75  # Efficiency value per order
+    pd_return = pd_time_savings_value + pd_efficiency_gains - pd_assumptions['system_maintenance_cost']
+    
+    # Build ROI data with calculated returns
+    initiatives_with_returns = {
+        'Regional Distribution Centers': rdc_return,
+        'Warehouse Automation': wa_return,
+        'Logistics Partnership Optimization': lpo_return,
+        'Process Digitization': pd_return
+    }
+    
+    for initiative, calculated_return in initiatives_with_returns.items():
+        investment = operations_initiatives[initiative]['investment']
+        roi = ((calculated_return - investment) / investment) * 100
         roi_data.append({
             'Initiative': initiative,
-            'Investment': data['investment'],
-            'Expected Return': data['return'],
+            'Investment': investment,
+            'Expected Return': calculated_return,
             'ROI %': roi,
-            'Timeline': data['timeline']
+            'Timeline': operations_initiatives[initiative]['timeline']
         })
     
     roi_df = pd.DataFrame(roi_data)
@@ -1138,6 +1221,55 @@ def page_coo_recommendations(df, data_dict):
         'Expected Return': 'R$ {:,.0f}',
         'ROI %': '{:.0f}%'
     }), use_container_width=True)
+    
+    # Detailed Assumptions Documentation
+    st.markdown("### 📋 Detailed COO Initiative Assumptions")
+    
+    for initiative, data in operations_initiatives.items():
+        with st.expander(f"⚙️ {initiative} - Calculation Details"):
+            st.markdown(f"**Investment:** R$ {data['investment']:,}")
+            st.markdown(f"**Timeline:** {data['timeline']}")
+            st.markdown("**Key Assumptions:**")
+            
+            if initiative == 'Regional Distribution Centers':
+                st.markdown(f"""
+                - Current average delivery time: {current_avg_delivery:.1f} days → Target: {current_avg_delivery - data['assumptions']['delivery_time_reduction']:.1f} days
+                - On-time delivery improvement: {current_ontime_rate:.1f}% → {current_ontime_rate + data['assumptions']['ontime_improvement']:.1f}%
+                - Cost reduction per order: R$ {data['assumptions']['cost_per_order_reduction']} (shipping optimization)
+                - Customer satisfaction boost: {data['assumptions']['customer_satisfaction_boost']*100:.0f}% (faster delivery)
+                - Annual operational savings: R$ {data['assumptions']['annual_operational_savings']:,}
+                - **Calculation:** {total_annual_orders:,} orders × R$ {data['assumptions']['cost_per_order_reduction']} savings + satisfaction value + operational savings
+                """)
+                
+            elif initiative == 'Warehouse Automation':
+                st.markdown(f"""
+                - Current processing time: {current_processing:.1f} days → Target: {current_processing - data['assumptions']['processing_time_reduction']:.1f} days
+                - Annual labor cost savings: R$ {data['assumptions']['labor_cost_savings']:,}
+                - Error reduction: {data['assumptions']['error_reduction']*100:.0f}% (picking accuracy improvement)
+                - Throughput increase: {data['assumptions']['throughput_increase']*100:.0f}% (more orders processed)
+                - Annual maintenance cost: R$ {data['assumptions']['maintenance_cost']:,}
+                - **Calculation:** Labor savings + error reduction value + throughput gains - maintenance costs
+                """)
+                
+            elif initiative == 'Logistics Partnership Optimization':
+                st.markdown(f"""
+                - Carrier cost reduction: {data['assumptions']['carrier_cost_reduction']*100:.0f}% through better negotiations
+                - Delivery reliability boost: {data['assumptions']['delivery_reliability_boost']:.0f}% improvement
+                - Negotiated savings per order: R$ {data['assumptions']['negotiation_savings_per_order']}
+                - Annual partnership management: R$ {data['assumptions']['partnership_management_cost']:,}
+                - Volume discount threshold: {data['assumptions']['volume_discount_threshold']:,} orders
+                - **Calculation:** {total_annual_orders:,} orders × R$ {data['assumptions']['negotiation_savings_per_order']} + reliability value - management costs
+                """)
+                
+            elif initiative == 'Process Digitization':
+                st.markdown(f"""
+                - Time savings: {data['assumptions']['automation_time_savings']} hours per day per employee
+                - Headcount optimization: {data['assumptions']['headcount_optimization']} equivalent full-time positions
+                - Average hourly wage: R$ {data['assumptions']['avg_hourly_wage']}
+                - Working days per year: {data['assumptions']['working_days_per_year']}
+                - Annual system maintenance: R$ {data['assumptions']['system_maintenance_cost']:,}
+                - **Calculation:** {data['assumptions']['headcount_optimization']} positions × {data['assumptions']['automation_time_savings']} hours × R$ {data['assumptions']['avg_hourly_wage']} × {data['assumptions']['working_days_per_year']} days + efficiency gains
+                """)
     
     # Strategic Action Plan
     st.markdown("### ⚙️ 90-Day Action Plan")
