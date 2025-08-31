@@ -1287,9 +1287,9 @@ def page_coo_recommendations(df, data_dict):
     st.markdown(f'<div class="roi-box">🎯 OPERATIONAL TARGET: Achieve 90%+ on-time delivery and <10 days average delivery time</div>', unsafe_allow_html=True)
 
 def page_cpo_recommendations(df, data_dict):
-    """CPO Product Strategy Recommendations with Portfolio Analysis"""
-    st.title("🛍️ CPO Product Strategy Recommendations")
-    st.markdown("### Product Portfolio Optimization & Strategy")
+    """Inventory Product Strategy Recommendations with Portfolio Analysis"""
+    st.title("📦 Inventory Product Strategy Recommendations")
+    st.markdown("### Product Portfolio Optimization & Inventory Management")
     
     # Product Portfolio Analysis
     total_products = df['product_id'].nunique()
@@ -1737,7 +1737,7 @@ def main():
     st.sidebar.title("🧭 Executive Navigation")
     page = st.sidebar.radio(
         "Select Dashboard",
-        ["Executive Overview", "💰 CFO Finance", "🎯 CMO Marketing", "⚙️ COO Operations", "🛍️ CPO Products", "🌍 Growth Strategy", "Seller Recommendations", "📚 Documentation"]
+        ["Executive Overview", "💰 CFO Finance", "🎯 CMO Marketing", "⚙️ COO Operations", "📦 Inventory Products", "🌍 Growth Strategy", "Seller Recommendations", "📚 Documentation"]
     )
     
     st.sidebar.markdown("---")
@@ -1775,7 +1775,7 @@ def main():
         page_cmo_recommendations(df, data_dict)
     elif page == "⚙️ COO Operations":
         page_coo_recommendations(df, data_dict)
-    elif page == "🛍️ CPO Products":
+    elif page == "📦 Inventory Products":
         page_cpo_recommendations(df, data_dict)
     elif page == "🌍 Growth Strategy":
         page_growth_recommendations(df, data_dict)
